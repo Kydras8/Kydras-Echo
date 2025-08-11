@@ -2,66 +2,122 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Kydras Echo — Transcribe to TXT / PDF / MP3</title>
-  <meta name="theme-color" content="#0b0d10"/>
-  <meta name="description" content="Kydras Echo transcribes video/audio to text, searchable PDF, or MP3."/>
-  <link rel="icon" href="/static/brand/kydras-logo.png" type="image/png"/>
+  <title>Kydras Echo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
-  <header class="brand">
-    <img src="/static/brand/kydras-logo.png" alt="Kydras" class="logo" />
-    <div class="titles">
-      <h1>Kydras Echo</h1>
-      <p class="tag">Nothing is off limits — Transcribe video/audio to <b>TXT</b>, <b>PDF</b>, or <b>MP3</b></p>
-    </div>
-  </header>
+  <div class="grid-bg"></div>
+<header class="topbar">
+  <div class="brand">
+    <img class="logo" src="/static/brand/kydras-logo.png" alt="Kydras logo">
+    <div class="title-text">&lt;/&gt; Kydras <b>Echo</b></div>
+  </div>
+  <div class="status" id="progress">ready</div>
+</header>
 
-  <main class="wrap card">
-    <div class="drop" id="drop">
-      <p>Drop a media file here or <label class="btn"><input type="file" id="file" hidden>browse</label></p>
-    </div>
+  <main class="container">
+    <section class="card">
+      <h2>File Transcription</h2>
+      <form id="file-form">
+        <input type="file" id="file" name="file" accept="audio/*,video/*" required />
+        <div class="opts">
+          <label><input type="checkbox" id="pp-paraphrase" /> Paraphrase</label>
+          <label><input type="checkbox" id="want-pdf" /> Save PDF</label>
+          <label><input type="checkbox" id="want-audio" /> Save Audio Copy</label>
+        </div>
+        <button class="btn" id="btn-file">Transcribe File</button>
+      </form>
+    </section>
 
-    <div class="row">
-      <label>Output:</label>
-      <select id="fmt">
-        <option value="txt">TXT</option>
-        <option value="pdf">PDF</option>
-        <option value="mp3">MP3</option>
-      </select>
-      <label>Model:</label>
-      <select id="model">
-        <option value="tiny">tiny</option>
-        <option value="base" selected>base</option>
-        <option value="small">small</option>
-        <option value="medium">medium</option>
-      </select>
-      <button id="go">Transcribe</button>
-    </div>
+    <section class="card">
+      <h2>URL Transcription</h2>
+      <div class="row">
+        <input id="url-input" type="url" placeholder="https://youtube.com/..." />
+        <button class="btn" id="btn-url">Transcribe URL</button>
+      </div>
+      <div class="opts">
+        <label><input type="checkbox" id="url-want-pdf" /> Save PDF</label>
+        <label><input type="checkbox" id="url-want-audio" /> Save Audio Copy</label>
+        <label><input type="checkbox" id="url-paraphrase" /> Paraphrase</label>
+      </div>
+    </section>
 
-    <pre id="log"></pre>
-    <div id="result"></div>
+    <section class="card">
+      <h2>Output</h2>
+      <textarea id="output" rows="12" spellcheck="false" placeholder="Transcript will appear here..."></textarea>
+      <div class="files" id="files"></div>
+      <p class="muted">Saved files: <a href="/outputs" target="_blank">/outputs</a></p>
+    </section>
   </main>
 
-<script>
-const fileInput=document.getElementById("file"),drop=document.getElementById("drop"),
-go=document.getElementById("go"),fmt=document.getElementById("fmt"),
-model=document.getElementById("model"),log=t=>document.getElementById("log").textContent+=t+"\\n";
-let selected=null;
-fileInput.addEventListener("change",e=>selected=e.target.files[0]);
-drop.addEventListener("dragover",e=>{e.preventDefault();drop.classList.add("hover");});
-drop.addEventListener("dragleave",()=>drop.classList.remove("hover"));
-drop.addEventListener("drop",e=>{e.preventDefault();drop.classList.remove("hover");selected=e.dataTransfer.files[0];});
-go.addEventListener("click",async()=>{
-  if(!selected){alert("Choose a file first");return;}
-  const fd=new FormData(); fd.append("media",selected); fd.append("output_format",fmt.value); fd.append("model_size",model.value);
-  log("[*] Uploading…");
-  const r=await fetch("/api/transcribe",{method:"POST",body:fd}); const d=await r.json();
-  if(!d.ok){log("[x] "+(d.error||"error"));return;}
-  log("[✓] Done. Download ready.");
-  document.getElementById("result").innerHTML=`<a class="dl" href="\${d.output}" target="_blank">Download \${fmt.value.toUpperCase()}</a>`;
-});
-</script>
+  <footer class="foot">Outputs are saved in <code>~/KydrasEcho/outputs</code></footer>
+
+  <script>
+  (function(){
+    const q = (s) => document.querySelector(s);
+    const progress = q("#progress");
+    const out = q("#output");
+    const files = q("#files");
+
+    function setStatus(t){ if(progress) progress.textContent = t || "ready"; }
+    function showFiles(map){
+      files.innerHTML = "";
+      if(!map) return;
+      for(const [k,v] of Object.entries(map)){
+        if(!v) continue;
+        const a = document.createElement("a");
+        a.href = "/outputs/" + v.split("/outputs/").pop();
+        a.target = "_blank";
+        a.textContent = k.toUpperCase() + ": " + v.split("/").pop();
+        const div = document.createElement("div");
+        div.className = "file-pill";
+        div.appendChild(a);
+        files.appendChild(div);
+      }
+    }
+
+    q("#btn-file").addEventListener("click", async (e)=>{
+      e.preventDefault();
+      const f = q("#file").files[0];
+      if(!f){ alert("Choose a file"); return; }
+      const fd = new FormData();
+      fd.append("file", f);
+      if(q("#pp-paraphrase").checked) fd.append("paraphrase","1");
+      if(q("#want-pdf").checked) fd.append("want_pdf","1");
+      if(q("#want-audio").checked) fd.append("want_audio_copy","1");
+      setStatus("Transcribing file...");
+      try{
+        const r = await fetch("/transcribe",{method:"POST", body: fd});
+        const j = await r.json();
+        if(!j.ok) throw new Error(j.error||"server error");
+        out.value = j.text||"";
+        showFiles(j.files);
+        setStatus("Done");
+      }catch(err){ console.error(err); setStatus("Error"); alert(err.message); }
+    });
+
+    q("#btn-url").addEventListener("click", async (e)=>{
+      e.preventDefault();
+      const url = q("#url-input").value.trim();
+      if(!url){ alert("Enter a URL"); return; }
+      const body = {
+        url,
+        paraphrase: q("#url-paraphrase").checked,
+        want_pdf: q("#url-want-pdf").checked,
+        want_audio_copy: q("#url-want-audio").checked
+      };
+      setStatus("Downloading & transcribing...");
+      try{
+        const r = await fetch("/transcribe_url",{method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)});
+        const j = await r.json();
+        if(!j.ok) throw new Error(j.error||"server error");
+        out.value = j.text||"";
+        showFiles(j.files);
+        setStatus("Done");
+      }catch(err){ console.error(err); setStatus("Error"); alert(err.message); }
+    });
+  })();
+  </script>
 </body>
 </html>

@@ -1,76 +1,187 @@
-from fastapi import FastAPI, UploadFile, File, Form, Request
-from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
+from __future__ import annotations
+import os, shutil, subprocess, tempfile, textwrap
+from datetime import datetime
+from pathlib import Path
+from typing import Optional
+
+from fastapi import FastAPI, Request, UploadFile, File, Form
+from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.templating import Jinja2Templates
-from faster_whisper import WhisperModel
-from fpdf import FPDF
-import tempfile, os, uuid, pathlib, subprocess, shutil
 
-APP_ROOT = pathlib.Path(__file__).resolve().parent
-OUT_DIR  = APP_ROOT / "outputs"
-OUT_DIR.mkdir(parents=True, exist_ok=True)
+# ---------------------------------------------------------------------
+# Paths & app
+# ---------------------------------------------------------------------
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parent
+TEMPL_DIR = HERE / "templates"
+STATIC_DIR = HERE / "static"
+DEST_DIR = Path.home() / "KydrasEcho" / "outputs"
+DEST_DIR.mkdir(parents=True, exist_ok=True)
 
-app = FastAPI(title="Kydras Echo")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
-app.mount("/static", StaticFiles(directory=str(APP_ROOT / "static")), name="static")
-templates = Jinja2Templates(directory=str(APP_ROOT / "templates"))
+app = FastAPI(title="Kydras Echo", version="0.10.0")
 
-@app.get("/", response_class=HTMLResponse, include_in_schema=False)
-def index(req: Request): return templates.TemplateResponse("index.html", {"request": req})
+# Mount static assets and a read-only outputs browser
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+app.mount("/outputs", StaticFiles(directory=str(DEST_DIR)), name="outputs")
+
+templates = Jinja2Templates(directory=str(TEMPL_DIR)) if TEMPL_DIR.exists() else None
+
+# ---------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------
+def as_bool(val) -> bool:
+    if isinstance(val, bool): return val
+    if val is None: return False
+    s = str(val).strip().lower()
+    return s in {"1","true","on","yes","y"}
+
+def simple_paraphrase(text: str) -> str:
+    import re
+    t = text or ""
+    t = re.sub(r"[ \t]+", " ", t)
+    t = re.sub(r" *\n *", "\n", t)
+    t = re.sub(r"\b(uh|um|you know|like,|i mean|sort of|kind of)\b", "", t, flags=re.I)
+    t = re.sub(r"\s{2,}", " ", t).strip()
+    return t
+
+def run_transcription(audio_path: str) -> str:
+    # TODO: replace with your real STT
+    base = os.path.basename(audio_path)
+    return f"[demo transcript for {base}] Replace run_transcription(...) with your STT."
+
+def save_text_file(text: str, prefix: str) -> str:
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    safe = "".join(c for c in (prefix or "output") if c.isalnum() or c in "-_")[:50] or "output"
+    out = DEST_DIR / f"{safe}_{ts}.txt"
+    with open(out, "w", encoding="utf-8") as f: f.write(text)
+    return str(out)
+
+def save_pdf(text: str, prefix: str) -> str:
+    from fpdf import FPDF
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    safe = "".join(c for c in (prefix or "output") if c.isalnum() or c in "-_")[:50] or "output"
+    out = DEST_DIR / f"{safe}_{ts}.pdf"
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+    pdf.set_font("Courier", size=11)
+    for line in text.splitlines() or [" "]:
+        wrapped = textwrap.wrap(line, width=95) or [""]
+        for w in wrapped:
+            pdf.cell(0, 5, txt=w, ln=1)
+    pdf.output(str(out))
+    return str(out)
+
+def copy_audio_to_outputs(src_path: str, prefix: Optional[str]=None) -> str:
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    base = prefix or Path(src_path).stem
+    safe = "".join(c for c in (base or "audio") if c.isalnum() or c in "-_")[:50] or "audio"
+    ext = Path(src_path).suffix or ".bin"
+    dst = DEST_DIR / f"{safe}_{ts}{ext}"
+    shutil.copy2(src_path, dst)
+    return str(dst)
+
+def save_upload_to_tmp(upload: UploadFile) -> str:
+    td = tempfile.mkdtemp(prefix="kye-up-")
+    dst = os.path.join(td, upload.filename or "input.bin")
+    with open(dst, "wb") as f: shutil.copyfileobj(upload.file, f)
+    return dst
+
+def download_video_to_tmp(url: str) -> str:
+    td = tempfile.mkdtemp(prefix="kye-url-")
+    out_tpl = os.path.join(td, "audio.%(ext)s")
+    cmd = ["yt-dlp","-f","bestaudio/best","--extract-audio","--audio-format","m4a","-o",out_tpl,url]
+    subprocess.check_call(cmd)
+    for fn in os.listdir(td):
+        if fn.startswith("audio.") and fn.split(".")[-1].lower() in {"m4a","mp3","wav","ogg","webm"}:
+            return os.path.join(td, fn)
+    raise RuntimeError("Audio download failed — no output file found.")
+
+# ---------------------------------------------------------------------
+# Routes
+# ---------------------------------------------------------------------
+@app.get("/", include_in_schema=False)
+def root() -> RedirectResponse:
+    return RedirectResponse(url="/gui")
 
 @app.get("/gui", response_class=HTMLResponse, include_in_schema=False)
-def gui(req: Request): return templates.TemplateResponse("index.html", {"request": req})
+def gui(request: Request):
+    if not templates:
+        html = """<!doctype html><meta charset="utf-8"><title>Kydras Echo</title>
+        <h1>Kydras Echo</h1><p>Templates folder not found. API is up.</p>"""
+        return HTMLResponse(html)
+    return templates.TemplateResponse("index.html", {"request": request})
 
 @app.get("/health", include_in_schema=False)
-def health(): return {"ok": True}
+def health(): return {"ok": True, "status": "up"}
 
-def _ffmpeg(*args):
-    subprocess.run(["ffmpeg","-hide_banner","-loglevel","error", *args], check=True)
-
-def export_pdf(text: str, out_pdf: str):
-    pdf = FPDF(); pdf.set_auto_page_break(True, 15); pdf.add_page(); pdf.set_font("Arial", size=12)
-    for line in (text.splitlines() or [""]): pdf.multi_cell(0, 8, line)
-    pdf.output(out_pdf)
-
-@app.post("/api/transcribe")
-def transcribe(media: UploadFile = File(...),
-               output_format: str = Form(...),  # txt|pdf|mp3
-               model_size: str = Form("base")):  # tiny|base|small|medium|large-v3
-    job = uuid.uuid4().hex[:8]
-    tmp = pathlib.Path(tempfile.mkdtemp(prefix=f"echo_{job}_"))
-    src = tmp / media.filename
-    src.write_bytes(media.file.read())
+@app.post("/transcribe")
+async def transcribe_file(
+    file: UploadFile = File(...),
+    paraphrase: str | None = Form(None),
+    want_pdf: str | None = Form(None),
+    want_audio_copy: str | None = Form(None),
+):
+    path = None; tmpdir = None
     try:
-        if output_format.lower() == "mp3":
-            out = OUT_DIR / f"{src.stem}_{job}.mp3"
-            _ffmpeg("-y","-i",str(src),"-vn","-acodec","libmp3lame","-b:a","192k",str(out))
-            return {"ok": True, "output": f"/download/{out.name}", "job_id": job}
+        path = save_upload_to_tmp(file); tmpdir = os.path.dirname(path)
+        text = run_transcription(path)
+        if as_bool(paraphrase):
+            try: text = simple_paraphrase(text)
+            except Exception: pass
 
-        wav = tmp / "audio.wav"
-        _ffmpeg("-y","-i",str(src),"-ac","1","-ar","16000","-vn",str(wav))
+        saved_txt = save_text_file(text, Path(path).stem)
+        saved_pdf = save_pdf(text, Path(path).stem) if as_bool(want_pdf) else None
+        saved_audio = copy_audio_to_outputs(path) if as_bool(want_audio_copy) else None
 
-        model = WhisperModel(model_size, compute_type="int8")
-        segments, info = model.transcribe(str(wav), vad_filter=True)
-        text = "\n".join([s.text.strip() for s in segments if s.text.strip()])
-
-        base = f"{src.stem}_{job}"
-        if output_format.lower() == "txt":
-            out = OUT_DIR / f"{base}.txt"; out.write_text(text, encoding="utf-8")
-            return {"ok": True, "output": f"/download/{out.name}", "job_id": job}
-        elif output_format.lower() == "pdf":
-            out = OUT_DIR / f"{base}.pdf"; export_pdf(text, str(out))
-            return {"ok": True, "output": f"/download/{out.name}", "job_id": job}
-        else:
-            return JSONResponse({"ok": False, "error": "bad format"}, status_code=400)
+        return {"ok": True, "text": text, "files": {"txt": saved_txt, "pdf": saved_pdf, "audio": saved_audio}}
     except subprocess.CalledProcessError as e:
-        return JSONResponse({"ok": False, "error": "ffmpeg failed", "detail": str(e)}, status_code=500)
+        return JSONResponse({"ok": False, "error": f"Transcription failed: {e}"}, status_code=500)
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
     finally:
-        shutil.rmtree(tmp, ignore_errors=True)
+        if tmpdir and os.path.isdir(tmpdir): shutil.rmtree(tmpdir, ignore_errors=True)
 
-@app.get("/download/{name}", include_in_schema=False)
-def download(name: str):
-    p = OUT_DIR / name
-    return FileResponse(str(p), filename=p.name) if p.exists() else JSONResponse({"ok": False, "error": "not found"}, 404)
+@app.post("/transcribe_url")
+async def transcribe_url(
+    request: Request,
+    video_url: str | None = Form(None),
+    paraphrase: str | None = Form(None),
+    want_pdf: str | None = Form(None),
+    want_audio_copy: str | None = Form(None),
+):
+    local_path = None; tmpdir = None
+    try:
+        url = None
+        if request.headers.get("content-type","").startswith("application/json"):
+            try:
+                payload = await request.json()
+                if isinstance(payload, dict):
+                    url = payload.get("url") or payload.get("video_url")
+                    if "paraphrase" in payload: paraphrase = payload.get("paraphrase")
+                    if "want_pdf" in payload: want_pdf = payload.get("want_pdf")
+                    if "want_audio_copy" in payload: want_audio_copy = payload.get("want_audio_copy")
+            except Exception: pass
+        if not url: url = video_url
+        if not url: return JSONResponse({"ok": False, "error": "Missing URL"}, status_code=400)
+
+        local_path = download_video_to_tmp(url); tmpdir = os.path.dirname(local_path)
+        text = run_transcription(local_path)
+        if as_bool(paraphrase):
+            try: text = simple_paraphrase(text)
+            except Exception: pass
+
+        stem = Path(local_path).stem
+        saved_txt = save_text_file(text, stem)
+        saved_pdf = save_pdf(text, stem) if as_bool(want_pdf) else None
+        saved_audio = copy_audio_to_outputs(local_path) if as_bool(want_audio_copy) else None
+
+        return {"ok": True, "text": text, "files": {"txt": saved_txt, "pdf": saved_pdf, "audio": saved_audio}}
+    except subprocess.CalledProcessError as e:
+        return JSONResponse({"ok": False, "error": f"Download failed: {e}"}, status_code=500)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+    finally:
+        if tmpdir and os.path.isdir(tmpdir): shutil.rmtree(tmpdir, ignore_errors=True)
