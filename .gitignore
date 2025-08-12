@@ -49,3 +49,18 @@ gui/static/*.bak*
 
 # CSV manifests
 *.csv
+# Python venv
+.venv/
+
+# Logs and temp outputs
+.logs/
+outputs/
+
+# Backups and autosaves
+*.bak*
+gui/app.py.bak*
+gui/templates/*.bak*
+gui/static/*.bak*
+
+# CSV manifests
+*.csv
