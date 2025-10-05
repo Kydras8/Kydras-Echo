@@ -1,36 +1,8 @@
-# Python cache and bytecode
+.venv/
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
-
-# Virtual environments
-.venv/
-env/
-venv/
-
-# Build artifacts
-build/
-dist/
-*.egg-info/
-*.tar.gz
-*.zip
-
-# Release artifacts
-.release/
-
-# OS files
 .DS_Store
-Thumbs.db
-
-# Logs
+site/
+dist/
+build/
 *.log
-
-# IDE configs
-.vscode/
-.idea/
-
-# Temporary files
-*.tmp
-*.swp
-*.swo
