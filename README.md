@@ -1,6 +1,8 @@
 <p align="center">
   <img src="assets/brand/kydras-echo-banner.svg" alt="Kydras Echo" width="800" />
 </p>
+<p align="center"><img alt="Downloads" src="https://img.shields.io/github/downloads/Kydras8/Kydras-Echo/total?label=Downloads&color=gold"> <img alt="Last Commit" src="https://img.shields.io/github/last-commit/Kydras8/=gold"> <img alt="Code Size" src="https://img.shields.io/github/languages/code-size/Kydras8/=gold"></p>
+
 
 <p align="center">
   <a href="https://github.com/Kydras8/Kydras-Echo/releases"><img alt="Releases" src="https://img.shields.io/github/v/release/Kydras8/Kydras-Echo?logo=github"></a>
@@ -27,3 +29,4 @@
 ```powershell
 git clone https://github.com/Kydras8/Kydras-Echo
 cd Kydras-Echo
+
