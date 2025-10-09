@@ -1,0 +1,10 @@
+[project]
+name = 'kydras-echo'
+version = '0.1.0'
+description = 'KydrasEcho — media → transcript/summaries'
+requires-python = '>=3.10'
+authors = [{name='Kyle Rasmussen', email='8bitlate@gmail.com'}]
+dependencies = [ 'fastapi','uvicorn','pydantic','rich' ]
+
+[project.scripts]
+kydras-echo = 'kydras_echo.cli:main'

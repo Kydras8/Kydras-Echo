@@ -1,0 +1,1 @@
+"""KydrasEcho package (skeleton)."""
