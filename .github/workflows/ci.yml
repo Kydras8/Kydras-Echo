@@ -1,0 +1,32 @@
+name: CI
+on:
+  push:
+  pull_request:
+jobs:
+  python-ci:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        py: ["3.10", "3.11", "3.12"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.py }}
+      - name: Install tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff
+      - name: Lint
+        run: ruff check .
+      - name: Smoke import GUI
+        run: |
+          python - << "PY"
+import importlib.util, pathlib
+p = pathlib.Path("legacy/kydrasecho/gui/app.py")
+spec = importlib.util.spec_from_file_location("k_gui_app", p)
+m = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(m)
+print("OK")
+PY

@@ -185,3 +185,24 @@ async def transcribe_url(
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
     finally:
         if tmpdir and os.path.isdir(tmpdir): shutil.rmtree(tmpdir, ignore_errors=True)
+# --- Kydras Echo: global hotkeys wiring (auto-appended by Cipher) ---
+try:
+    from .hotkeys import HotkeyManager
+except Exception:
+    from hotkeys import HotkeyManager  # fallback if relative import differs
+
+def _cipher_ptt():
+    # TODO: call your existing "start listening" or PTT toggle here
+    print("[Kydras] PTT hotkey fired (Ctrl+Shift+Space)")
+
+def _cipher_palette():
+    # TODO: open your command palette UI here
+    print("[Kydras] Command Palette hotkey fired (Ctrl+Shift+K)")
+
+try:
+    _hk = HotkeyManager(on_ptt=_cipher_ptt, on_palette=_cipher_palette)
+    _hk.start()
+    print("[Kydras] Global hotkeys active: PTT=Ctrl+Shift+Space, Palette=Ctrl+Shift+K")
+except Exception as e:
+    print("[Kydras] Hotkeys failed to start:", e)
+# --- /wiring ---

@@ -10,3 +10,4 @@ tokenizers<0.21
 pydantic>=2.8
 yt-dlp>=2025.0.0
 requests>=2.32
+pynput>=1.7
