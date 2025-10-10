@@ -1,32 +1,36 @@
 // apps/web/src/app/api/storage/sign/route.ts
-// ✅ Force this API route to Node.js (Edge can't use `node:crypto`)
-export const runtime = 'nodejs';
+// ✅ Must be Edge runtime for Cloudflare Pages + next-on-pages
+export const runtime = 'edge';
 
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import { randomUUID } from "node:crypto";
 
 // Build an S3 client for Cloudflare R2 using env vars set in Pages
 function s3() {
   const endpoint = process.env.S3_ENDPOINT!;
+  if (!endpoint) throw new Error("S3_ENDPOINT missing");
+
   const region = process.env.S3_REGION || "auto";
   const forcePathStyle = String(process.env.S3_USE_PATH_STYLE) === "true";
   const credentials = {
     accessKeyId: process.env.S3_ACCESS_KEY || "",
     secretAccessKey: process.env.S3_SECRET_KEY || "",
   };
+
   return new S3Client({ endpoint, region, forcePathStyle, credentials });
 }
 
-// POST creates a zero-byte placeholder object and returns the key
+function makeKey(ext?: string) {
+  const cleanExt = ext ? `.${String(ext).replace(/^\./, "")}` : "";
+  // ✅ use Web Crypto (Edge-safe), not `node:crypto`
+  const id = crypto.randomUUID();
+  return `uploads/${new Date().toISOString().slice(0, 10)}/${id}${cleanExt}`;
+}
+
 export async function POST(req: Request) {
   try {
     const { contentType, ext } = (await req.json()) as { contentType: string; ext?: string };
 
-    // e.g., uploads/2025-10-10/8c8d6a6e-... .png
-    const key = `uploads/${new Date().toISOString().slice(0, 10)}/${randomUUID()}${
-      ext ? `.${String(ext).replace(/^\./, "")}` : ""
-    }`;
-
+    const key = makeKey(ext);
     const bucket = process.env.S3_BUCKET!;
     const client = s3();
 
@@ -51,7 +55,6 @@ export async function POST(req: Request) {
   }
 }
 
-// Simple health check for this route
 export async function GET() {
   return new Response(JSON.stringify({ ok: true }), {
     headers: { "content-type": "application/json" },
