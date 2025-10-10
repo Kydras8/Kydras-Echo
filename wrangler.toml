@@ -1,14 +1,18 @@
 name = "kydras-echo"
 
 # Because your Cloudflare Pages root is `apps/web`,
-# the build output (from next-on-pages) lives here relative to REPO ROOT:
+# the build output (from next-on-pages) lives relative to REPO ROOT:
 pages_build_output_dir = "apps/web/.vercel/output/static"
 
+# Workers runtime settings
 compatibility_date = "2025-10-10"
 compatibility_flags = ["nodejs_compat"]
 
 [vars]
+# Use your Pages URL (update later if you add a custom domain)
 NEXTAUTH_URL = "https://kydras-echo.pages.dev"
+
+# R2 S3 client defaults we used
 S3_REGION = "auto"
 S3_USE_PATH_STYLE = "false"
 
