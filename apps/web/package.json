@@ -7,22 +7,25 @@
     "dev": "next dev",
     "build": "next build && npx @cloudflare/next-on-pages@1",
     "start": "next start",
-    "cf:pages": "npx wrangler pages dev .vercel/output/static --compatibility-date=2024-11-11"
+    "cf:dev": "npx wrangler pages dev .vercel/output/static --compatibility-date=2025-10-10"
   },
   "dependencies": {
-    "@cloudflare/next-on-pages": "^1.13.6",
-    "@prisma/client": "^5.20.0",
     "@aws-sdk/client-s3": "^3.670.0",
+    "@prisma/client": "^5.20.0",
     "argon2": "^0.41.1",
     "next": "15.5.2",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "zod": "^3.23.8",
-    "stripe": "^16.6.0"
+    "stripe": "^16.6.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@cloudflare/next-on-pages": "^1.13.16",
+    "@types/node": "^20.11.30",
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
     "prisma": "^5.20.0",
-    "wrangler": "^3.78.10",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "wrangler": "^3.78.10"
   }
 }
