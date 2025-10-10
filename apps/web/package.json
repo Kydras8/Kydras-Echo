@@ -4,11 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-  "dev": "next dev",
-  "build": "next build",
-  "start": "next start",
-  "cf:dev": "npx wrangler pages dev .vercel/output/static --compatibility-date=2025-10-10"
-}
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "cf:dev": "npx wrangler pages dev .vercel/output/static --compatibility-date=2025-10-10"
+  },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.670.0",
     "@prisma/client": "^5.20.0",
@@ -29,4 +29,5 @@
     "wrangler": "^3.78.10"
   }
 }
+
 
