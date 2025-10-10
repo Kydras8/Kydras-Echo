@@ -1,11 +1,12 @@
 name = "kydras-echo"
 pages_build_output_dir = ".vercel/output/static"
 compatibility_date = "2025-10-10"
-compatibility_flags = ["nodejs_compat"]   # ← add this
+compatibility_flags = ["nodejs_compat"]
 
 [vars]
 NEXTAUTH_URL = "https://kydras-echo.pages.dev"
 S3_REGION = "auto"
 S3_USE_PATH_STYLE = "false"
+
 
 
