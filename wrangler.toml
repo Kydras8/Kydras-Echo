@@ -1,0 +1,7 @@
+name = "kydras-echo"
+compatibility_date = "2024-11-11"
+
+[vars]
+NEXTAUTH_URL = "https://your-project.pages.dev"
+S3_REGION = "auto"
+S3_USE_PATH_STYLE = "false"
