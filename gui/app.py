@@ -71,12 +71,9 @@ def save_pdf(text: str, prefix: str) -> str:
     pdf.set_font("Courier", size=11)
     lines = text.splitlines() if text else [" "]
     for line in lines:
-        wrapped = textwrap.wrap(line, width=95)
-        if wrapped:
-            for w in wrapped:
-                pdf.cell(0, 5, txt=w, ln=1)
-        else:
-            pdf.cell(0, 5, txt="", ln=1)
+        wrapped = textwrap.wrap(line, width=95) or [""]
+        for w in wrapped:
+            pdf.cell(0, 5, txt=w, ln=1)
     pdf.output(str(out))
     return str(out)
 
