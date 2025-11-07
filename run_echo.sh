@@ -7,15 +7,22 @@ mkdir -p "$LOGDIR"
 
 TARGETS=("gui.app:app" "app:app" "main:app")
 APP_TARGET=""
-for t in "${TARGETS[@]}"; do
-  python - <<PY 2>/dev/null && APP_TARGET="$t" && break || true
+APP_TARGET=$(python - <<'PY' 2>/dev/null || true
 import importlib
-mod, var = "$t".split(":")
-m = importlib.import_module(mod)
-getattr(m, var)
-print("ok")
+import sys
+targets = ["gui.app:app", "app:app", "main:app"]
+for t in targets:
+    try:
+        mod, var = t.split(":")
+        m = importlib.import_module(mod)
+        getattr(m, var)
+        print(t)
+        sys.exit(0)
+    except Exception:
+        continue
+sys.exit(1)
 PY
-done
+)
 [[ -n "$APP_TARGET" ]] || { echo "[!] Could not locate FastAPI app object (tried: ${TARGETS[*]})"; exit 1; }
 
 start() {

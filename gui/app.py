@@ -1,5 +1,5 @@
 from __future__ import annotations
-import os, shutil, subprocess, tempfile, textwrap
+import os, re, shutil, subprocess, tempfile, textwrap
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -8,6 +8,7 @@ from fastapi import FastAPI, Request, UploadFile, File, Form
 from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from fpdf import FPDF
 
 # ---------------------------------------------------------------------
 # Paths & app
@@ -28,6 +29,9 @@ app.mount("/outputs", StaticFiles(directory=str(DEST_DIR)), name="outputs")
 
 templates = Jinja2Templates(directory=str(TEMPL_DIR)) if TEMPL_DIR.exists() else None
 
+# Constants
+AUDIO_EXTS = {"m4a", "mp3", "wav", "ogg", "webm"}
+
 # ---------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------
@@ -38,7 +42,6 @@ def as_bool(val) -> bool:
     return s in {"1","true","on","yes","y"}
 
 def simple_paraphrase(text: str) -> str:
-    import re
     t = text or ""
     t = re.sub(r"[ \t]+", " ", t)
     t = re.sub(r" *\n *", "\n", t)
@@ -59,7 +62,6 @@ def save_text_file(text: str, prefix: str) -> str:
     return str(out)
 
 def save_pdf(text: str, prefix: str) -> str:
-    from fpdf import FPDF
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     safe = "".join(c for c in (prefix or "output") if c.isalnum() or c in "-_")[:50] or "output"
     out = DEST_DIR / f"{safe}_{ts}.pdf"
@@ -67,7 +69,8 @@ def save_pdf(text: str, prefix: str) -> str:
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
     pdf.set_font("Courier", size=11)
-    for line in text.splitlines() or [" "]:
+    lines = text.splitlines() if text else [" "]
+    for line in lines:
         wrapped = textwrap.wrap(line, width=95) or [""]
         for w in wrapped:
             pdf.cell(0, 5, txt=w, ln=1)
@@ -95,8 +98,10 @@ def download_video_to_tmp(url: str) -> str:
     cmd = ["yt-dlp","-f","bestaudio/best","--extract-audio","--audio-format","m4a","-o",out_tpl,url]
     subprocess.check_call(cmd)
     for fn in os.listdir(td):
-        if fn.startswith("audio.") and fn.split(".")[-1].lower() in {"m4a","mp3","wav","ogg","webm"}:
-            return os.path.join(td, fn)
+        if fn.startswith("audio."):
+            ext = fn.split(".")[-1].lower()
+            if ext in AUDIO_EXTS:
+                return os.path.join(td, fn)
     raise RuntimeError("Audio download failed — no output file found.")
 
 # ---------------------------------------------------------------------
@@ -132,8 +137,9 @@ async def transcribe_file(
             try: text = simple_paraphrase(text)
             except Exception: pass
 
-        saved_txt = save_text_file(text, Path(path).stem)
-        saved_pdf = save_pdf(text, Path(path).stem) if as_bool(want_pdf) else None
+        stem = Path(path).stem
+        saved_txt = save_text_file(text, stem)
+        saved_pdf = save_pdf(text, stem) if as_bool(want_pdf) else None
         saved_audio = copy_audio_to_outputs(path) if as_bool(want_audio_copy) else None
 
         return {"ok": True, "text": text, "files": {"txt": saved_txt, "pdf": saved_pdf, "audio": saved_audio}}
