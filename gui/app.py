@@ -138,8 +138,9 @@ async def transcribe_file(
             try: text = simple_paraphrase(text)
             except Exception: pass
 
-        saved_txt = save_text_file(text, Path(path).stem)
-        saved_pdf = save_pdf(text, Path(path).stem) if as_bool(want_pdf) else None
+        stem = Path(path).stem
+        saved_txt = save_text_file(text, stem)
+        saved_pdf = save_pdf(text, stem) if as_bool(want_pdf) else None
         saved_audio = copy_audio_to_outputs(path) if as_bool(want_audio_copy) else None
 
         return {"ok": True, "text": text, "files": {"txt": saved_txt, "pdf": saved_pdf, "audio": saved_audio}}
