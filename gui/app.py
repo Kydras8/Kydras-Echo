@@ -29,6 +29,9 @@ app.mount("/outputs", StaticFiles(directory=str(DEST_DIR)), name="outputs")
 
 templates = Jinja2Templates(directory=str(TEMPL_DIR)) if TEMPL_DIR.exists() else None
 
+# Constants
+AUDIO_EXTS = {"m4a", "mp3", "wav", "ogg", "webm"}
+
 # ---------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------
@@ -97,11 +100,10 @@ def download_video_to_tmp(url: str) -> str:
     out_tpl = os.path.join(td, "audio.%(ext)s")
     cmd = ["yt-dlp","-f","bestaudio/best","--extract-audio","--audio-format","m4a","-o",out_tpl,url]
     subprocess.check_call(cmd)
-    audio_exts = {"m4a","mp3","wav","ogg","webm"}
     for fn in os.listdir(td):
         if fn.startswith("audio."):
             ext = fn.split(".")[-1].lower()
-            if ext in audio_exts:
+            if ext in AUDIO_EXTS:
                 return os.path.join(td, fn)
     raise RuntimeError("Audio download failed — no output file found.")
 
