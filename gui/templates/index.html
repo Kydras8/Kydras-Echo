@@ -59,6 +59,16 @@
     const progress = q("#progress");
     const out = q("#output");
     const files = q("#files");
+    
+    // Cache form elements
+    const fileInput = q("#file");
+    const ppParaphrase = q("#pp-paraphrase");
+    const wantPdf = q("#want-pdf");
+    const wantAudio = q("#want-audio");
+    const urlInput = q("#url-input");
+    const urlParaphrase = q("#url-paraphrase");
+    const urlWantPdf = q("#url-want-pdf");
+    const urlWantAudio = q("#url-want-audio");
 
     function setStatus(t){ if(progress) progress.textContent = t || "ready"; }
     function showFiles(map){
@@ -66,10 +76,12 @@
       if(!map) return;
       for(const [k,v] of Object.entries(map)){
         if(!v) continue;
+        const parts = v.split("/");
+        const filename = parts[parts.length - 1];
         const a = document.createElement("a");
-        a.href = "/outputs/" + v.split("/outputs/").pop();
+        a.href = "/outputs/" + filename;
         a.target = "_blank";
-        a.textContent = k.toUpperCase() + ": " + v.split("/").pop();
+        a.textContent = k.toUpperCase() + ": " + filename;
         const div = document.createElement("div");
         div.className = "file-pill";
         div.appendChild(a);
@@ -79,13 +91,13 @@
 
     q("#btn-file").addEventListener("click", async (e)=>{
       e.preventDefault();
-      const f = q("#file").files[0];
+      const f = fileInput.files[0];
       if(!f){ alert("Choose a file"); return; }
       const fd = new FormData();
       fd.append("file", f);
-      if(q("#pp-paraphrase").checked) fd.append("paraphrase","1");
-      if(q("#want-pdf").checked) fd.append("want_pdf","1");
-      if(q("#want-audio").checked) fd.append("want_audio_copy","1");
+      if(ppParaphrase.checked) fd.append("paraphrase","1");
+      if(wantPdf.checked) fd.append("want_pdf","1");
+      if(wantAudio.checked) fd.append("want_audio_copy","1");
       setStatus("Transcribing file...");
       try{
         const r = await fetch("/transcribe",{method:"POST", body: fd});
@@ -99,13 +111,13 @@
 
     q("#btn-url").addEventListener("click", async (e)=>{
       e.preventDefault();
-      const url = q("#url-input").value.trim();
+      const url = urlInput.value.trim();
       if(!url){ alert("Enter a URL"); return; }
       const body = {
         url,
-        paraphrase: q("#url-paraphrase").checked,
-        want_pdf: q("#url-want-pdf").checked,
-        want_audio_copy: q("#url-want-audio").checked
+        paraphrase: urlParaphrase.checked,
+        want_pdf: urlWantPdf.checked,
+        want_audio_copy: urlWantAudio.checked
       };
       setStatus("Downloading & transcribing...");
       try{

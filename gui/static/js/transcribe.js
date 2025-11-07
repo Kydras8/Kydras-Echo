@@ -60,7 +60,7 @@ console.log("[transcribe.js] loaded");
 
       let data; try { data = JSON.parse(raw); } catch { data = { raw }; }
       const t = (data && (data.transcript || data.text || data.raw)) || (typeof raw === "string" ? raw : JSON.stringify(data||{}, null, 2));
-      printOut(t);
+      if (out) out.textContent = t;
     } catch (err) {
       if (out) out.textContent = `Error: ${err.message || err}`;
     } finally {
