@@ -1,5 +1,5 @@
 from __future__ import annotations
-import os, shutil, subprocess, tempfile, textwrap
+import os, re, shutil, subprocess, tempfile, textwrap
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -8,6 +8,7 @@ from fastapi import FastAPI, Request, UploadFile, File, Form
 from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from fpdf import FPDF
 
 # ---------------------------------------------------------------------
 # Paths & app
@@ -38,7 +39,6 @@ def as_bool(val) -> bool:
     return s in {"1","true","on","yes","y"}
 
 def simple_paraphrase(text: str) -> str:
-    import re
     t = text or ""
     t = re.sub(r"[ \t]+", " ", t)
     t = re.sub(r" *\n *", "\n", t)
@@ -59,7 +59,6 @@ def save_text_file(text: str, prefix: str) -> str:
     return str(out)
 
 def save_pdf(text: str, prefix: str) -> str:
-    from fpdf import FPDF
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     safe = "".join(c for c in (prefix or "output") if c.isalnum() or c in "-_")[:50] or "output"
     out = DEST_DIR / f"{safe}_{ts}.pdf"
@@ -67,10 +66,14 @@ def save_pdf(text: str, prefix: str) -> str:
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
     pdf.set_font("Courier", size=11)
-    for line in text.splitlines() or [" "]:
-        wrapped = textwrap.wrap(line, width=95) or [""]
-        for w in wrapped:
-            pdf.cell(0, 5, txt=w, ln=1)
+    lines = text.splitlines() if text else [" "]
+    for line in lines:
+        wrapped = textwrap.wrap(line, width=95)
+        if wrapped:
+            for w in wrapped:
+                pdf.cell(0, 5, txt=w, ln=1)
+        else:
+            pdf.cell(0, 5, txt="", ln=1)
     pdf.output(str(out))
     return str(out)
 
@@ -94,9 +97,12 @@ def download_video_to_tmp(url: str) -> str:
     out_tpl = os.path.join(td, "audio.%(ext)s")
     cmd = ["yt-dlp","-f","bestaudio/best","--extract-audio","--audio-format","m4a","-o",out_tpl,url]
     subprocess.check_call(cmd)
+    audio_exts = {"m4a","mp3","wav","ogg","webm"}
     for fn in os.listdir(td):
-        if fn.startswith("audio.") and fn.split(".")[-1].lower() in {"m4a","mp3","wav","ogg","webm"}:
-            return os.path.join(td, fn)
+        if fn.startswith("audio."):
+            ext = fn.split(".")[-1].lower()
+            if ext in audio_exts:
+                return os.path.join(td, fn)
     raise RuntimeError("Audio download failed — no output file found.")
 
 # ---------------------------------------------------------------------
